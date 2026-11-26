@@ -239,18 +239,47 @@ int memsync(void *start, void *end)
 {
    size_t len = (char*)end - (char*)start;
 #if defined(__SWITCH2__)
-   memjit_sw2_slot_t *slot;
-   (void)len;
-   mutexLock(&s_sw2_jit_mutex);
-   slot = memjit_sw2_find(start);
-   if (slot)
+   /* Flush the written RW bytes and invalidate the corresponding RX bytes.
+    * Permission transitions (writable ↔ executable) are owned by
+    * memjit_write_begin / memjit_write_end, which bracket the whole
+    * armStartBlock / armEndBlock session.  memsync only handles coherence:
+    * it makes writes in the RW alias visible to instruction fetch through
+    * the RX alias.
+    *
+    * For JitType_CodeMemory: the two aliases are physically separate pages,
+    * so both a D-cache flush of the written RW range and an I-cache
+    * invalidate of the RX range are required.
+    *
+    * For JitType_SetProcessMemoryPermission with the persistent alias:
+    * rw_addr is staging; jitTransitionToExecutable (called in write_end)
+    * publishes the full staging buffer and invalidates the RX I-cache.
+    * memsync still flushes the D-cache of the written staging range to
+    * ensure the publish sees the most recent data.
+    *
+    * For JitType_SetProcessMemoryPermission without alias: rw_addr equals
+    * src_addr; the region is writable between write_begin and write_end,
+    * so a D-cache flush of the write range is enough here. */
    {
-      jitTransitionToWritable(&slot->jit);
-      jitTransitionToExecutable(&slot->jit);
+      memjit_sw2_slot_t *slot;
+      mutexLock(&s_sw2_jit_mutex);
+      slot = memjit_sw2_find(start);
       mutexUnlock(&s_sw2_jit_mutex);
-      return 0;
+      if (slot)
+      {
+         Jit *j = &slot->jit;
+         size_t off = (size_t)((const unsigned char *)start
+                               - (const unsigned char *)jitGetRxAddr(j));
+         unsigned char *rw_start = (unsigned char *)jitGetRwAddr(j) + off;
+
+         armDCacheFlush(rw_start, len);
+         if (j->type == JitType_CodeMemory)
+            armICacheInvalidate(start, len);
+         /* SetProcessMemoryPermission: I-cache invalidate is done by
+          * jitTransitionToExecutable in memjit_write_end. */
+         return 0;
+      }
    }
-   mutexUnlock(&s_sw2_jit_mutex);
+   /* Not a JIT slot (plain data or unknown): just sync the cache range. */
    __builtin___clear_cache((char*)start, (char*)end);
    return 0;
 #elif defined(_WIN32) && !defined(_XBOX)
@@ -711,8 +740,56 @@ void memjit_write_end(void)
       memjit_protect(1);
 }
 #else
+/* Switch 2: track the slot being written per thread so write_begin can
+ * call jitTransitionToWritable and write_end can call
+ * jitTransitionToExecutable.  For JitType_CodeMemory and the alias path
+ * both transitions are no-ops, so the only cost is the slot lookup.
+ * For the no-alias SetProcessMemoryPermission path, write_begin unmaps
+ * the RX view (making src_addr writable) and write_end maps it back (RX
+ * again).  Keeping the region in writable state across a whole armStart/
+ * EndBlock session avoids paying for a round-trip SVC per memsync call. */
+#if defined(__SWITCH2__)
+static __thread Jit *t_jit_write_slot;
+
+void memjit_write_begin(void)
+{
+   /* Caller has already called armSetAsmPtr with the RX base, so
+    * armAsmPtr is the RX address.  Look up the slot and transition to
+    * writable once.  Nesting is not needed: armStartBlock calls this
+    * exactly once before any write, with no armStartBlock nesting. */
+   /* We cannot call memjit_rw_ptr / memjit_sw2_find here because they
+    * need the RX pointer and we have no parameter.  Instead the caller
+    * stores the write slot via memjit_set_write_slot(), which a64_init
+    * does (it already calls memjit_rw_ptr and therefore has the slot). */
+   if (t_jit_write_slot)
+      jitTransitionToWritable(t_jit_write_slot);
+}
+
+void memjit_write_end(void)
+{
+   if (t_jit_write_slot)
+      jitTransitionToExecutable(t_jit_write_slot);
+}
+
+void memjit_set_write_slot(Jit *j)
+{
+   t_jit_write_slot = j;
+}
+
+/* Called from a64_init with the RX base address: looks up the slot
+ * and stores it in TLS so write_begin/end know which slot to transition. */
+void memjit_set_write_slot_for_rx(void *rx_ptr)
+{
+   memjit_sw2_slot_t *slot;
+   mutexLock(&s_sw2_jit_mutex);
+   slot = memjit_sw2_find(rx_ptr);
+   mutexUnlock(&s_sw2_jit_mutex);
+   t_jit_write_slot = slot ? &slot->jit : NULL;
+}
+#else
 void memjit_write_begin(void) { }
 void memjit_write_end(void)   { }
+#endif
 #endif
 
 /* ------------------------------------------------------------------ */

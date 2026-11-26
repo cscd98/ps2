@@ -376,6 +376,20 @@ void *memjit_rw_ptr(void *rx_ptr);
 int memjit_owns_rx_ptr(void *rx_ptr);
 
 /**
+ * memjit_set_write_slot_for_rx:
+ * @rx_ptr     : RX base address returned by memjit_alloc, about to be
+ *               written through its RW alias.  Stores the matching Jit
+ *               handle in thread-local storage so that the next
+ *               memjit_write_begin / memjit_write_end pair transitions the
+ *               correct slot.  No-op on non-Switch 2 builds.
+ */
+#if defined(__SWITCH2__)
+void memjit_set_write_slot_for_rx(void *rx_ptr);
+#else
+static INLINE void memjit_set_write_slot_for_rx(void *rx_ptr) { (void)rx_ptr; }
+#endif
+
+/**
  * memzero_pages:
  *
  * Zeroes a page-aligned range of private anonymous memory as cheaply as

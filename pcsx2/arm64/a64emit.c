@@ -71,6 +71,10 @@ void a64_init(a64_emit* e, void* buf, size_t cap)
 	e->scratch  = (1u << 16) | (1u << 17);
 	e->vscratch = 1u << 31;
 	e->error    = 0;
+#if defined(__SWITCH2__)
+	/* Tell memjit_write_begin/end which slot this emitter session owns. */
+	memjit_set_write_slot_for_rx(buf);
+#endif
 }
 
 void a64_word(a64_emit* e, u32 insn)

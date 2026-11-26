@@ -120,6 +120,9 @@ void armEmitJmpPtr(void* code_address, const void* target, bool flush_icache)
 	const s64 displacement = GetPCDisplacement(code_address, target);
 	pxAssert(a64_is_int(displacement, 26));
 
+#if defined(__SWITCH2__)
+	memjit_set_write_slot_for_rx(code_address);
+#endif
 	memjit_write_begin();
 	a64_patch_b(code_address, target);
 	memjit_write_end();
