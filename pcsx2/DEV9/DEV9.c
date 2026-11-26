@@ -19,7 +19,7 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#else
+#elif !defined(__SWITCH2__)
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -76,11 +76,13 @@ static bool isRunning = false;
  * (mmap's failure is MAP_FAILED, not NULL; past a file's end is SIGBUS). */
 static void eeprom_map(void)
 {
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__SWITCH2__)
 	struct stat st;
 #endif
 	dev9.eeprom = (u16*)eeprom;
-#ifdef _WIN32
+#ifdef __SWITCH2__
+	return;
+#elif defined(_WIN32)
 	hEeprom = CreateFileW(L"eeprom.dat", GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH, NULL);
 	if (hEeprom == INVALID_HANDLE_VALUE)
 		return;
@@ -121,6 +123,10 @@ static void eeprom_map(void)
 
 static void eeprom_unmap(void)
 {
+#ifdef __SWITCH2__
+	dev9.eeprom = (u16*)eeprom;
+	return;
+#else
 	if (dev9.eeprom && dev9.eeprom != (u16*)eeprom)
 	{
 #ifdef _WIN32
@@ -141,6 +147,7 @@ static void eeprom_unmap(void)
 	if (hEeprom >= 0)
 		close(hEeprom);
 	hEeprom = -1;
+#endif
 #endif
 }
 

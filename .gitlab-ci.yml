@@ -44,6 +44,10 @@ include:
     file: '/tvos-cmake.yml'
 
   ################################## CONSOLES ################################
+  # Nintendo Switch 2
+  - project: 'libretro-infrastructure/ci-templates'
+    file: '/libounce-cmake.yml'
+
   # webOS
   - project: 'libretro-infrastructure/ci-templates'
     file: '/webos-cmake.yml'
@@ -174,6 +178,15 @@ libretro-build-tvos-arm64:
     - .core-defs
   variables:
     EXTRA_PATH: libretro
+
+################################### CONSOLES #################################
+# Nintendo Switch 2
+libretro-build-libounce-aarch64:
+   extends:
+     - .libretro-libounce-cmake-aarch64
+     - .core-defs
+   variables:
+     EXTRA_PATH: nro
 
 ##################################### WEBOS ##################################
 # aarch64 only. The other half of the platform is armv7a, and the recompilers

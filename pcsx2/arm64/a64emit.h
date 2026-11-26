@@ -223,6 +223,7 @@ static INLINE size_t a64_label_offset(const a64_label* l) { return (size_t)(l->p
 typedef struct a64_emit
 {
 	u8* base;
+	u8* rw_base;
 	size_t cap;
 	size_t pos;
 	u32 scratch;  /* available X scratch registers, by bit */

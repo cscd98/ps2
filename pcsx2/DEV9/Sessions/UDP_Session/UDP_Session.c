@@ -20,6 +20,7 @@
 #include <winsock2.h>
 #else
 #include <errno.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #endif
 

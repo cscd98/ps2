@@ -131,8 +131,17 @@ target_include_directories(pcsx2_libretro PRIVATE
 	"${CMAKE_SOURCE_DIR}/pcsx2"
 )
 
+if (SWITCH2)
+   target_include_directories(pcsx2_libretro PRIVATE
+	   "$ENV{DEVKITPRO}/libounce/include"
+   )
+
+    # Define platform macro
+    target_compile_definitions(pcsx2_libretro PRIVATE __SWITCH2__)
+endif()
+
 set_target_properties(pcsx2_libretro PROPERTIES
-   LIBRARY_OUTPUT_NAME pcsx2_libretro
+   LIBRARY_OUTPUT_NAME "pcsx2_libretro${LIBRETRO_SUFFIX}"
    PREFIX ""
 )
 
@@ -174,4 +183,27 @@ if(LRPS2_SMOKE_GATE)
       WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/smoke-work"
       COMMENT "smoke gate: libretro lifecycle against the freshly linked core"
       VERBATIM)
+endif()
+
+if(SWITCH2)
+  set_target_properties(pcsx2_libretro PROPERTIES
+    SUFFIX ".elf"
+    NO_SONAME TRUE
+  )
+
+  target_link_options(pcsx2_libretro PRIVATE
+    "-Wl,-soname,pcsx2_libretro_libounce.nro"
+  )
+
+  ounce_create_library_nro(
+    pcsx2_libretro
+    OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/nro"
+  )
+
+  add_custom_command(TARGET pcsx2_libretro POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E rename
+      "${CMAKE_BINARY_DIR}/nro/pcsx2_libretro_libounce.elf"
+      "${CMAKE_BINARY_DIR}/nro/pcsx2_libretro_libounce.nro"
+    VERBATIM
+  )
 endif()

@@ -196,6 +196,8 @@ s32 WorkEventCount_SpinBudget(void)
 		SYSTEM_INFO si;
 		GetSystemInfo(&si);
 		budget = (si.dwNumberOfProcessors >= 2) ? 2000 : 0;
+#elif defined(__SWITCH2__)
+		budget = 2000;
 #else
 		budget = (sysconf(_SC_NPROCESSORS_ONLN) >= 2) ? 2000 : 0;
 #endif

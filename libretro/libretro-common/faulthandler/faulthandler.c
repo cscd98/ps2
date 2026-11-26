@@ -28,6 +28,25 @@
 #include <retro_atomic.h>
 #include <memmap.h>
 
+#if defined(__SWITCH2__)
+bool retro_faulthandler_install(retro_fault_handler_t handler)
+{
+   (void)handler;
+   return false;
+}
+void retro_faulthandler_remove(retro_fault_handler_t handler)
+{
+   (void)handler;
+}
+bool retro_faulthandler_register_thread(void)
+{
+   return false;
+}
+void retro_faulthandler_unregister_thread(void)
+{
+}
+#else
+
 #if defined(_WIN32)
 #include <windows.h>
 #else
@@ -356,3 +375,4 @@ void retro_faulthandler_remove(retro_fault_handler_t handler)
 #endif
    retro_atomic_store_release_int(&s_reg_state, FAULT_REG_FREE);
 }
+#endif

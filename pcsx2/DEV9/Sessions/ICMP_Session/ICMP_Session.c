@@ -30,7 +30,9 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#ifndef __SWITCH2__
 #include <sys/uio.h>
+#endif
 #include <netinet/in.h>
 #ifdef __linux__
 #include <linux/errqueue.h>

@@ -10,7 +10,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
-#else
+#elif !defined(__SWITCH2__)
 #include <sys/mman.h>
 #if defined(__linux__) || defined(__FreeBSD__) || defined(__NetBSD__) || \
 	defined(__OpenBSD__) || defined(__DragonFly__)

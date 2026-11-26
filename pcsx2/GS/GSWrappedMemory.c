@@ -183,7 +183,7 @@ void GSFreeWrappedMemory(void* ptr, size_t size, size_t repeat)
 	s_fh = NULL;
 }
 
-#else
+#elif !defined(__SWITCH2__)
 
 #include <errno.h>
 #include <fcntl.h>
@@ -283,6 +283,24 @@ void GSFreeWrappedMemory(void* ptr, size_t size, size_t repeat)
 	if (s_shm_fd >= 0)
 		close(s_shm_fd);
 	s_shm_fd = -1;
+}
+
+#elif defined(__SWITCH2__)
+
+#include <stdlib.h>
+
+void* GSAllocateWrappedMemory(size_t size, size_t repeat)
+{
+	if (repeat == 0 || size > ((size_t)-1) / repeat)
+		return NULL;
+	return calloc(repeat, size);
+}
+
+void GSFreeWrappedMemory(void* ptr, size_t size, size_t repeat)
+{
+	(void)size;
+	(void)repeat;
+	free(ptr);
 }
 
 #endif

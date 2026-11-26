@@ -34,7 +34,7 @@ if (NOT WIN32)
     # bionic has no librt (clock_*/timer_* live in libc); linking it
     # unconditionally fails the NDK lanes at final link with
     # "unable to find library -lrt".
-    if (NOT APPLE AND NOT ANDROID)
+    if (NOT APPLE AND NOT ANDROID AND NOT SWITCH2)
         target_link_libraries(granite-util PUBLIC rt)
     endif()
 endif()

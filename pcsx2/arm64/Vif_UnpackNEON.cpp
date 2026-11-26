@@ -11,7 +11,9 @@
 
 
 #include <cstdlib>
+#ifndef __SWITCH2__
 #include <sys/mman.h>
+#endif
 #include <memmap.h>
 
 

@@ -22,6 +22,7 @@
 #define SHUT_WR SD_SEND
 #else
 #include <errno.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #endif
@@ -305,8 +306,13 @@ static int tcp_recv(net_session* s, u8* frame)
 		if (err == WSAEINVAL || err == WSAESHUTDOWN)
 			return 0;
 #else
+#ifdef ESHUTDOWN
 		if (err == EINVAL || err == ESHUTDOWN)
 			return 0; /* the PS2 reset it as this ran */
+#else
+		if (err == EINVAL)
+			return 0; /* the PS2 reset it as this ran */
+#endif
 #endif
 		close_by_remote_rst(s);
 		log_cb(RETRO_LOG_ERROR, "DEV9: TCP: Recv Error: %d\n", err);

@@ -28,7 +28,7 @@
 #include <boolean.h>
 #include <retro_common_api.h>
 
-#if defined(PSP) || defined(PS2) || defined(GEKKO) || defined(VITA) || defined(_XBOX) || defined(_3DS) || defined(WIIU) || defined(SWITCH) || defined(HAVE_LIBNX) || defined(__PS3__) || defined(__PSL1GHT__)
+#if defined(PSP) || defined(PS2) || defined(GEKKO) || defined(VITA) || defined(_XBOX) || defined(_3DS) || defined(WIIU) || defined(SWITCH) || defined(HAVE_LIBNX) || defined(__PS3__) || defined(__PSL1GHT__) || defined(__SWITCH2__)
 /* No mman available */
 #elif defined(_WIN32) && !defined(_XBOX)
 /* MSVC's minwindef.h defines min and max as macros in C++ as well as C
@@ -363,6 +363,7 @@ void memjit_write_end(void);
  */
 void *memjit_alloc(size_t len);
 void memjit_free(void *addr, size_t len);
+void *memjit_rw_ptr(void *rx_ptr);
 
 /**
  * memzero_pages:

@@ -29,7 +29,9 @@
 #include <cstring>
 #include <unordered_map>
 #include <vector>
+#ifndef __SWITCH2__
 #include <sys/mman.h>
+#endif
 
 #include "arm64/a64emit.h"
 

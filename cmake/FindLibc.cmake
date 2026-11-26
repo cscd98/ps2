@@ -10,7 +10,7 @@ endif(LIBC_LIBRARIES)
 find_library(libm NAMES m)
 
 # OSX doesn't have rt. On Linux timer and aio dependency.
-if(ANDROID)
+if(ANDROID OR SWITCH2)
 	# bionic has neither librt nor libdl: the timer and dl entry points live in
 	# libc itself. Looking for them leaves librt-NOTFOUND in LIBC_LIBRARIES,
 	# which CMake then refuses to generate a link line for.

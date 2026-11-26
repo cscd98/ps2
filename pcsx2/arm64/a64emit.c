@@ -4,6 +4,7 @@
  */
 
 #include <string.h>
+#include <memmap.h>
 
 #include "a64emit.h"
 
@@ -64,6 +65,7 @@ static u32 fptype(a64r r) { return (lbits(r) == 64) ? 0x00400000u : (lbits(r) ==
 void a64_init(a64_emit* e, void* buf, size_t cap)
 {
 	e->base     = (u8*)buf;
+	e->rw_base  = (u8*)memjit_rw_ptr(buf);
 	e->cap      = cap;
 	e->pos      = 0;
 	e->scratch  = (1u << 16) | (1u << 17);
@@ -78,18 +80,18 @@ void a64_word(a64_emit* e, u32 insn)
 		e->error = 1;
 		return;
 	}
-	memcpy(e->base + e->pos, &insn, 4);
+	memcpy(e->rw_base + e->pos, &insn, 4);
 	e->pos += 4;
 }
 
 static u32 peek(const a64_emit* e, size_t at)
 {
 	u32 w;
-	memcpy(&w, e->base + at, 4);
+	memcpy(&w, e->rw_base + at, 4);
 	return w;
 }
 
-static void poke(a64_emit* e, size_t at, u32 w) { memcpy(e->base + at, &w, 4); }
+static void poke(a64_emit* e, size_t at, u32 w) { memcpy(e->rw_base + at, &w, 4); }
 
 #define emit a64_word
 
@@ -1017,7 +1019,7 @@ void a64_patch_b(void* code, const void* target)
 {
 	s64 disp = ((s64)((const u8*)target - (const u8*)code)) / 4;
 	u32 w    = 0x14000000u | ((u32)disp & 0x03FFFFFFu);
-	memcpy(code, &w, 4);
+	memcpy(memjit_rw_ptr(code), &w, 4);
 }
 
 /* Loads and stores: op is size<<30 | V<<26 | opc<<22 */

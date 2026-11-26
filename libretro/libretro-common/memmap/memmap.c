@@ -207,10 +207,53 @@ int mprotect(void *addr, size_t len, int prot)
 #include <libkern/OSCacheControl.h>
 #endif
 
+#if defined(__SWITCH2__)
+#include <switch.h>
+#define MEMJIT_SWITCH2_SLOTS 16
+typedef struct memjit_sw2_slot
+{
+   Jit jit;
+   int active;
+} memjit_sw2_slot_t;
+static memjit_sw2_slot_t s_sw2_jits[MEMJIT_SWITCH2_SLOTS];
+static Mutex s_sw2_jit_mutex;
+
+static memjit_sw2_slot_t *memjit_sw2_find(const void *rx_ptr)
+{
+   uintptr_t p = (uintptr_t)rx_ptr;
+   int i;
+   for (i = 0; i < MEMJIT_SWITCH2_SLOTS; i++)
+   {
+      if (s_sw2_jits[i].active)
+      {
+         uintptr_t base = (uintptr_t)jitGetRxAddr(&s_sw2_jits[i].jit);
+         if (p >= base && p < base + s_sw2_jits[i].jit.size)
+            return &s_sw2_jits[i];
+      }
+   }
+   return NULL;
+}
+#endif
+
 int memsync(void *start, void *end)
 {
    size_t len = (char*)end - (char*)start;
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(__SWITCH2__)
+   memjit_sw2_slot_t *slot;
+   (void)len;
+   mutexLock(&s_sw2_jit_mutex);
+   slot = memjit_sw2_find(start);
+   if (slot)
+   {
+      jitTransitionToWritable(&slot->jit);
+      jitTransitionToExecutable(&slot->jit);
+      mutexUnlock(&s_sw2_jit_mutex);
+      return 0;
+   }
+   mutexUnlock(&s_sw2_jit_mutex);
+   __builtin___clear_cache((char*)start, (char*)end);
+   return 0;
+#elif defined(_WIN32) && !defined(_XBOX)
    /* Coherent on x86; required on ARM64 Windows, where the JIT's writes
     * are not seen by instruction fetch until this. */
    return FlushInstructionCache(GetCurrentProcess(), start, len) ? 0 : -1;
@@ -676,9 +719,45 @@ void memjit_write_end(void)   { }
 /* JIT code memory                                                     */
 /* ------------------------------------------------------------------ */
 
+void *memjit_rw_ptr(void *rx_ptr)
+{
+#if defined(__SWITCH2__)
+   memjit_sw2_slot_t *slot;
+   void *res = rx_ptr;
+   mutexLock(&s_sw2_jit_mutex);
+   slot = memjit_sw2_find(rx_ptr);
+   if (slot)
+      res = (unsigned char *)jitGetRwAddr(&slot->jit) +
+            ((const unsigned char *)rx_ptr - (const unsigned char *)jitGetRxAddr(&slot->jit));
+   mutexUnlock(&s_sw2_jit_mutex);
+   return res;
+#else
+   return rx_ptr;
+#endif
+}
+
 void *memjit_alloc(size_t len)
 {
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(__SWITCH2__)
+   int i;
+   mutexLock(&s_sw2_jit_mutex);
+   for (i = 0; i < MEMJIT_SWITCH2_SLOTS; i++)
+   {
+      if (!s_sw2_jits[i].active)
+      {
+         if (R_SUCCEEDED(jitCreate(&s_sw2_jits[i].jit, len)))
+         {
+            void *rx = jitGetRxAddr(&s_sw2_jits[i].jit);
+            s_sw2_jits[i].active = 1;
+            mutexUnlock(&s_sw2_jit_mutex);
+            return rx;
+         }
+         break;
+      }
+   }
+   mutexUnlock(&s_sw2_jit_mutex);
+   return NULL;
+#elif defined(_WIN32) && !defined(_XBOX)
    return VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE,
          PAGE_EXECUTE_READWRITE);
 #elif defined(HAVE_MMAN) && !defined(__EMSCRIPTEN__) && defined(MAP_ANONYMOUS)
@@ -706,7 +785,23 @@ void memjit_free(void *addr, size_t len)
 {
    if (!addr)
       return;
-#if defined(_WIN32) && !defined(_XBOX)
+#if defined(__SWITCH2__)
+   {
+      int i;
+      (void)len;
+      mutexLock(&s_sw2_jit_mutex);
+      for (i = 0; i < MEMJIT_SWITCH2_SLOTS; i++)
+      {
+         if (s_sw2_jits[i].active && jitGetRxAddr(&s_sw2_jits[i].jit) == addr)
+         {
+            jitClose(&s_sw2_jits[i].jit);
+            s_sw2_jits[i].active = 0;
+            break;
+         }
+      }
+      mutexUnlock(&s_sw2_jit_mutex);
+   }
+#elif defined(_WIN32) && !defined(_XBOX)
    (void)len;
    VirtualFree(addr, 0, MEM_RELEASE);
 #elif defined(HAVE_MMAN) && !defined(__EMSCRIPTEN__) && defined(MAP_ANONYMOUS)

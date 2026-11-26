@@ -32,7 +32,9 @@
 #include "common/Perf.h"
 
 #include <algorithm>
+#ifndef __SWITCH2__
 #include <sys/mman.h>
+#endif
 #include <memmap.h>
 #include <vector>
 #include <string>

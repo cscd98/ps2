@@ -482,4 +482,61 @@ int net_adapter_gateways(const net_adapter* adapter, u8* out, int max)
 	return 0;
 }
 #endif
+#else
+const net_adapter* net_adapter_get(void** list, const char* name)
+{
+	(void)name;
+	if (list)
+		*list = NULL;
+	return NULL;
+}
+
+const net_adapter* net_adapter_get_auto(void** list)
+{
+	if (list)
+		*list = NULL;
+	return NULL;
+}
+
+void net_adapter_free(void* list)
+{
+	(void)list;
+}
+
+bool net_adapter_mac(const net_adapter* adapter, u8 mac[6])
+{
+	(void)adapter;
+	(void)mac;
+	return false;
+}
+
+bool net_adapter_ip(const net_adapter* adapter, u8 ip[4])
+{
+	(void)adapter;
+	(void)ip;
+	return false;
+}
+
+bool net_adapter_netmask(const net_adapter* adapter, u8 mask[4])
+{
+	(void)adapter;
+	(void)mask;
+	return false;
+}
+
+int net_adapter_gateways(const net_adapter* adapter, u8* out, int max)
+{
+	(void)adapter;
+	(void)out;
+	(void)max;
+	return 0;
+}
+
+int net_adapter_dns(const net_adapter* adapter, u8* out, int max)
+{
+	(void)adapter;
+	(void)out;
+	(void)max;
+	return 0;
+}
 #endif

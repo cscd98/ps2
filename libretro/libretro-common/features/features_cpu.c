@@ -1118,7 +1118,7 @@ unsigned cpu_features_get_core_amount(void)
    return 1; /* Only one PPU, SPUs don't really count */
 #elif defined(VITA)
    return 4;
-#elif defined(HAVE_LIBNX) || defined(SWITCH)
+#elif defined(HAVE_LIBNX) || defined(SWITCH) || defined(__SWITCH2__)
    return 4;
 #elif defined(_3DS)
    u8 device_model = 0xFF;

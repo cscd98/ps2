@@ -32,9 +32,11 @@
 #include <deque>
 #include <vector>
 #include <algorithm>
+#ifndef __SWITCH2__
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#endif
 
 #include "arm64/a64emit.h"
 
@@ -4463,11 +4465,11 @@ bool eeFastmemFault_arm64(uptr code_address)
 	if (delta < -(1 << 25) || delta >= (1 << 25))
 		return false; // out of B range -- impossible within one block, but don't corrupt code
 
-	u32* const insn = reinterpret_cast<u32*>(site.code);
+	u32* const insn = reinterpret_cast<u32*>(memjit_rw_ptr(reinterpret_cast<void*>(site.code)));
 	memjit_write_begin();
 	*insn = 0x14000000u | (static_cast<u32>(delta) & 0x03ffffffu); // B <stub>
 	memjit_write_end();
-	memsync(insn, (u8*)(insn) + (sizeof(u32)));
+	memsync(reinterpret_cast<void*>(site.code), (u8*)(site.code) + (sizeof(u32)));
 
 	const auto it = std::lower_bound(s_fm_faulting.begin(), s_fm_faulting.end(), site.pc);
 	if (it == s_fm_faulting.end() || *it != site.pc)
