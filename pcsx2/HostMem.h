@@ -21,6 +21,7 @@
 #define PCSX2_HOSTMEM_H
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <memmap.h>
 #include <retro_inline.h>
 #include "common/General.h"
@@ -61,10 +62,20 @@ static INLINE int host_prot(PageProtectionMode m)
  * neither read nor write, or if a hint was given and not honoured. */
 static INLINE void* host_mmap(void* hint, size_t size, PageProtectionMode m)
 {
-	void* p;
 	if (!m.m_read && !m.m_write)
 		return NULL;
-#if defined(_WIN32)
+#if defined(LIBRETRO) && defined(__SWITCH2__)
+	/* Switch 2 has no mmap; exec regions come from the libounce JIT allocator
+	 * (which maintains RX/RW aliases), data regions from malloc. Hints are
+	 * ignored: the malloc-stub mmap would ignore them anyway, and the JIT
+	 * allocator chooses its own addresses. */
+	(void)hint;
+	if (m.m_exec)
+		return memjit_alloc(size);
+	return calloc(1, size);
+#elif defined(_WIN32)
+	{
+	void* p;
 	/* memmap's mmap shim on Windows is a file mapping with no hint;
 	 * a reservation at the hint, committed and protected, is the same
 	 * thing HostSys's VirtualAlloc(MEM_RESERVE | MEM_COMMIT) was. */
@@ -83,8 +94,10 @@ static INLINE void* host_mmap(void* hint, size_t size, PageProtectionMode m)
 	}
 	mprotect(p, size, host_prot(m));
 	return p;
+	}
 #else
 	{
+		void* p;
 		int flags = MAP_PRIVATE | MAP_ANONYMOUS;
 #if defined(__APPLE__) && defined(__aarch64__)
 		if (m.m_read && m.m_exec)
@@ -107,7 +120,15 @@ static INLINE void host_munmap(void* p, size_t size)
 {
 	if (!p)
 		return;
-#if defined(_WIN32)
+#if defined(LIBRETRO) && defined(__SWITCH2__)
+	/* host_mmap on Switch 2 used either memjit_alloc (exec) or calloc (data).
+	 * memjit_free recognises JIT pointers and frees them; plain calloc blocks
+	 * go to free(). */
+	if (memjit_owns_rx_ptr(p))
+		memjit_free(p, size);
+	else
+		free(p);
+#elif defined(_WIN32)
 	memrelease(p, size);
 #else
 	munmap(p, size);

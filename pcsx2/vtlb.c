@@ -1246,8 +1246,14 @@ bool vtlb_Core_Alloc(void)
 
 	if (!retro_faulthandler_install(&vtlb_PageFaultHandler))
 	{
+#if defined(LIBRETRO) && defined(__SWITCH2__)
+		/* Switch 2 has no signal-based fault handler; fastmem and SMC
+		 * write-protection are both disabled, so this is non-fatal. */
+		log_cb(RETRO_LOG_WARN, "Fault handler unavailable (Switch 2); fastmem and SMC tracking disabled.\n");
+#else
 		log_cb(RETRO_LOG_ERROR, "Failed to install page fault handler.\n");
 		return false;
+#endif
 	}
 
 	return true;

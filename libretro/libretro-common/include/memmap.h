@@ -366,6 +366,16 @@ void memjit_free(void *addr, size_t len);
 void *memjit_rw_ptr(void *rx_ptr);
 
 /**
+ * memjit_owns_rx_ptr:
+ * @rx_ptr     : pointer to test.
+ *
+ * Returns non-zero when rx_ptr is the base address of a live JIT allocation
+ * made by memjit_alloc on this platform (always 0 on non-Switch 2 targets
+ * where memjit_alloc uses mmap and the distinction is not needed).
+ */
+int memjit_owns_rx_ptr(void *rx_ptr);
+
+/**
  * memzero_pages:
  *
  * Zeroes a page-aligned range of private anonymous memory as cheaply as

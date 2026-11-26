@@ -49,12 +49,19 @@ bool vmm_init(VirtualMemoryManager* m, const char* file_mapping_name, size_t siz
 		char real_file_mapping_name[128];
 		host_shm_name(real_file_mapping_name, sizeof(real_file_mapping_name), file_mapping_name);
 		m->file_handle = memshm_create(real_file_mapping_name, m->size);
+#if defined(LIBRETRO) && defined(__SWITCH2__)
+		/* Switch 2 has no shared-memory primitives; fall through to anonymous
+		 * allocation.  Fastmem (which needs the alias) is disabled separately. */
+		if (!m->file_handle)
+			m->file_handle = NULL; /* anonymous path below */
+#else
 		if (!m->file_handle)
 		{
 			free(m->pageuse);
 			m->pageuse = NULL;
 			return false;
 		}
+#endif
 	}
 	return true;
 }

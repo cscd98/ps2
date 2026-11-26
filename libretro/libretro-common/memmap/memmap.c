@@ -719,6 +719,31 @@ void memjit_write_end(void)   { }
 /* JIT code memory                                                     */
 /* ------------------------------------------------------------------ */
 
+/* Returns non-zero if rx_ptr is the exact RX base address of a live JIT slot.
+ * Used on Switch 2 to distinguish memjit_alloc'd memory from plain malloc. */
+int memjit_owns_rx_ptr(void *rx_ptr)
+{
+#if defined(__SWITCH2__)
+   int found = 0;
+   int i;
+   mutexLock(&s_sw2_jit_mutex);
+   for (i = 0; i < MEMJIT_SWITCH2_SLOTS; i++)
+   {
+      if (s_sw2_jits[i].active
+            && jitGetRxAddr(&s_sw2_jits[i].jit) == rx_ptr)
+      {
+         found = 1;
+         break;
+      }
+   }
+   mutexUnlock(&s_sw2_jit_mutex);
+   return found;
+#else
+   (void)rx_ptr;
+   return 0;
+#endif
+}
+
 void *memjit_rw_ptr(void *rx_ptr)
 {
 #if defined(__SWITCH2__)

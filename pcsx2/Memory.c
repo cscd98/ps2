@@ -149,6 +149,18 @@ static void ee_memory_reset(void);
  * -------------------------------------------------------------------------- */
 bool sys_memory_init(SysMainMemory* m)
 {
+#if defined(LIBRETRO) && defined(__SWITCH2__)
+	/* Switch 2: arm64 recompilers allocate JIT memory through memjit_alloc
+	 * directly and never use the code VMM.  Skip that 305 MB allocation so
+	 * it does not exhaust the application heap before the game starts. */
+	if (!vmm_init(&m->main, "pcsx2", HOSTMEM_MAIN_SIZE))
+	{
+		log_cb(RETRO_LOG_ERROR, "Could not set up the host memory maps.\n");
+		return false;
+	}
+	memset(&m->code, 0, sizeof(m->code));
+	vmm_map(&m->main, 0);
+#else
 	if (!vmm_init(&m->main, "pcsx2", HOSTMEM_MAIN_SIZE) || !vmm_init(&m->code, NULL, HOSTMEM_CODE_SIZE))
 	{
 		log_cb(RETRO_LOG_ERROR, "Could not set up the host memory maps.\n");
@@ -165,9 +177,14 @@ bool sys_memory_init(SysMainMemory* m)
 		       (unsigned)(HOSTMEM_MAIN_SIZE >> 20), (unsigned)(HOSTMEM_CODE_SIZE >> 20),
 		       (const void*)&s_image_anchor, (void*)m->main.baseptr, (void*)m->code.baseptr);
 	}
+#endif
 
 	vmm_bump_init(&m->bump, &m->main, HOSTMEM_BUMP_OFFSET, HOSTMEM_MAIN_SIZE - HOSTMEM_BUMP_OFFSET);
+#if defined(LIBRETRO) && defined(__SWITCH2__)
+	return vmm_is_ok(&m->main);
+#else
 	return vmm_is_ok(&m->main) && vmm_is_ok(&m->code);
+#endif
 }
 
 void sys_memory_destroy(SysMainMemory* m)
